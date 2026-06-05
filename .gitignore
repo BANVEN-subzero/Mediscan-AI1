@@ -35,6 +35,9 @@ MANIFEST
 *.db
 *.sqlite3
 
+# Models
+backend/models/*.pkl
+
 # Logs
 logs/
 *.log

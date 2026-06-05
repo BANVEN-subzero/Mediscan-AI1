@@ -1,0 +1,16 @@
+.git
+.gitignore
+.github
+.vscode
+*.md
+*.bat
+*.ps1
+Jenkinsfile
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+*.egg-info
+dist
+build

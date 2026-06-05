@@ -7,8 +7,8 @@ const API_BASE = (() => {
     if (savedUrl && savedUrl !== 'undefined') return savedUrl;
     const { protocol, hostname, origin } = window.location;
 
-    // Use Render backend for production (Vercel deployment)
-    return 'https://mediscan-ai-2-by4n.onrender.com';
+    // Use same origin since frontend and backend are now served together
+    return origin;
 })();
 
 console.log('MediScan API Base configured to:', API_BASE);

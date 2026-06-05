@@ -19,16 +19,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 import logging
-
-# Optional CloudWatch imports
-try:
-    import boto3
-    import watchtower
-    from cloudwatch_metrics import metrics, setup_standard_alarms
-    HAS_CLOUDWATCH = True
-except Exception as e:
-    print(f"CloudWatch libraries not available: {e}")
-    HAS_CLOUDWATCH = False
+import boto3
+import watchtower
+from cloudwatch_metrics import metrics, setup_standard_alarms
 # Load ML models
 script_dir = os.path.dirname(os.path.abspath(__file__))
 models_dir = os.path.join(script_dir, "models")
@@ -95,7 +88,24 @@ def _get_env(key: str, default: str) -> str:
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
+    # Configure Flask to serve static files from frontend directory
+    import os
+    # Try multiple possible paths for frontend directory
+    possible_frontend_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend'),
+        '/app/frontend'
+    ]
+    frontend_dir = None
+    for path in possible_frontend_paths:
+        if os.path.exists(path) and os.path.isdir(path):
+            frontend_dir = path
+            break
+    # Fallback to a default if none found
+    if not frontend_dir:
+        frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
+    
+    app = Flask(__name__, static_folder=frontend_dir, static_url_path='')
 
     allowed_origins = _get_env("ALLOWED_ORIGINS", "*")
     CORS(app, resources={r"/*": {"origins": allowed_origins}})
@@ -107,33 +117,32 @@ def create_app() -> Flask:
     logging.basicConfig(level=log_level)
     app.logger.setLevel(log_level)
 
-    if HAS_CLOUDWATCH:
-        aws_region = _get_env("AWS_REGION", "")
-        aws_access_key = _get_env("AWS_ACCESS_KEY_ID", "")
-        aws_secret_key = _get_env("AWS_SECRET_ACCESS_KEY", "")
+    aws_region = _get_env("AWS_REGION", "")
+    aws_access_key = _get_env("AWS_ACCESS_KEY_ID", "")
+    aws_secret_key = _get_env("AWS_SECRET_ACCESS_KEY", "")
 
-        if aws_region and aws_access_key and aws_secret_key:
-            try:
-                boto3_client = boto3.client(
-                    "logs",
-                    region_name=aws_region,
-                    aws_access_key_id=aws_access_key,
-                    aws_secret_access_key=aws_secret_key
-                )
-                cloudwatch_handler = watchtower.CloudWatchLogHandler(
-                    boto3_client=boto3_client,
-                    log_group_name="MediScanLogs",
-                    log_stream_name="FlaskBackend"
-                )
-                app.logger.addHandler(cloudwatch_handler)
-                logging.getLogger("werkzeug").addHandler(cloudwatch_handler)
-                app.logger.info("CloudWatch logging configured successfully.")
-                
-                # Set up CloudWatch metrics and alarms
-                setup_standard_alarms()
-                app.logger.info("CloudWatch alarms configured successfully.")
-            except Exception as e:
-                app.logger.error(f"Failed to configure CloudWatch logging: {e}")
+    if aws_region and aws_access_key and aws_secret_key:
+        try:
+            boto3_client = boto3.client(
+                "logs",
+                region_name=aws_region,
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_key
+            )
+            cloudwatch_handler = watchtower.CloudWatchLogHandler(
+                boto3_client=boto3_client,
+                log_group_name="MediScanLogs",
+                log_stream_name="FlaskBackend"
+            )
+            app.logger.addHandler(cloudwatch_handler)
+            logging.getLogger("werkzeug").addHandler(cloudwatch_handler)
+            app.logger.info("CloudWatch logging configured successfully.")
+            
+            # Set up CloudWatch metrics and alarms
+            setup_standard_alarms()
+            app.logger.info("CloudWatch alarms configured successfully.")
+        except Exception as e:
+            app.logger.error(f"Failed to configure CloudWatch logging: {e}")
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=12)
     JWTManager(app)
 
@@ -148,6 +157,19 @@ def create_app() -> Flask:
     @app.get("/health")
     def health():
         return jsonify({"ok": True})
+
+    # Serve frontend
+    @app.route('/')
+    def index():
+        return app.send_static_file('index.html')
+
+    @app.route('/<path:path>')
+    def serve_static(path):
+        # Try to serve the file, if it doesn't exist, serve index.html (for SPA routing)
+        try:
+            return app.send_static_file(path)
+        except:
+            return app.send_static_file('index.html')
 
     @app.post("/api/auth/register")
     def register():
@@ -805,7 +827,7 @@ def followup_logic(req_data: dict) -> dict:
 
 if __name__ == "__main__":
     app = create_app()
-    host = os.environ.get("FLASK_RUN_HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", os.environ.get("FLASK_RUN_PORT", "8000")))
+    host = os.environ.get("FLASK_RUN_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_RUN_PORT", "8000"))
     print(f"Binding to {host}:{port}")
     app.run(host=host, port=port, debug=False)
