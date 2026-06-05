@@ -19,9 +19,19 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 import logging
-import boto3
-import watchtower
-from cloudwatch_metrics import metrics, setup_standard_alarms
+
+# Optional CloudWatch imports
+try:
+    import boto3
+    import watchtower
+    from cloudwatch_metrics import metrics, setup_standard_alarms
+    HAS_CLOUDWATCH = True
+except ImportError:
+    HAS_CLOUDWATCH = False
+    boto3 = None
+    watchtower = None
+    metrics = None
+    setup_standard_alarms = None
 # Load ML models
 script_dir = os.path.dirname(os.path.abspath(__file__))
 models_dir = os.path.join(script_dir, "models")
@@ -117,32 +127,34 @@ def create_app() -> Flask:
     logging.basicConfig(level=log_level)
     app.logger.setLevel(log_level)
 
-    aws_region = _get_env("AWS_REGION", "")
-    aws_access_key = _get_env("AWS_ACCESS_KEY_ID", "")
-    aws_secret_key = _get_env("AWS_SECRET_ACCESS_KEY", "")
+    if HAS_CLOUDWATCH:
+        aws_region = _get_env("AWS_REGION", "")
+        aws_access_key = _get_env("AWS_ACCESS_KEY_ID", "")
+        aws_secret_key = _get_env("AWS_SECRET_ACCESS_KEY", "")
 
-    if aws_region and aws_access_key and aws_secret_key:
-        try:
-            boto3_client = boto3.client(
-                "logs",
-                region_name=aws_region,
-                aws_access_key_id=aws_access_key,
-                aws_secret_access_key=aws_secret_key
-            )
-            cloudwatch_handler = watchtower.CloudWatchLogHandler(
-                boto3_client=boto3_client,
-                log_group_name="MediScanLogs",
-                log_stream_name="FlaskBackend"
-            )
-            app.logger.addHandler(cloudwatch_handler)
-            logging.getLogger("werkzeug").addHandler(cloudwatch_handler)
-            app.logger.info("CloudWatch logging configured successfully.")
-            
-            # Set up CloudWatch metrics and alarms
-            setup_standard_alarms()
-            app.logger.info("CloudWatch alarms configured successfully.")
-        except Exception as e:
-            app.logger.error(f"Failed to configure CloudWatch logging: {e}")
+        if aws_region and aws_access_key and aws_secret_key:
+            try:
+                boto3_client = boto3.client(
+                    "logs",
+                    region_name=aws_region,
+                    aws_access_key_id=aws_access_key,
+                    aws_secret_access_key=aws_secret_key
+                )
+                cloudwatch_handler = watchtower.CloudWatchLogHandler(
+                    boto3_client=boto3_client,
+                    log_group_name="MediScanLogs",
+                    log_stream_name="FlaskBackend"
+                )
+                app.logger.addHandler(cloudwatch_handler)
+                logging.getLogger("werkzeug").addHandler(cloudwatch_handler)
+                app.logger.info("CloudWatch logging configured successfully.")
+                
+                # Set up CloudWatch metrics and alarms
+                if setup_standard_alarms:
+                    setup_standard_alarms()
+                    app.logger.info("CloudWatch alarms configured successfully.")
+            except Exception as e:
+                app.logger.error(f"Failed to configure CloudWatch logging: {e}")
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=12)
     JWTManager(app)
 
