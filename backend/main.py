@@ -115,6 +115,9 @@ def create_app() -> Flask:
     if not frontend_dir:
         frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
     
+    print(f"Using frontend directory: {frontend_dir}")
+    print(f"Frontend directory exists: {os.path.exists(frontend_dir)}")
+    
     app = Flask(__name__, static_folder=frontend_dir, static_url_path='')
 
     allowed_origins = _get_env("ALLOWED_ORIGINS", "*")
@@ -165,6 +168,10 @@ def create_app() -> Flask:
     engine = create_engine(db_url, future=True)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     Base.metadata.create_all(bind=engine)
+
+    @app.before_request
+    def log_request():
+        app.logger.info(f"--- Request: {request.method} {request.path} ---")
 
     @app.get("/health")
     def health():
@@ -255,12 +262,15 @@ def create_app() -> Flask:
         return jsonify(followup_logic(data))
 
     # Serve frontend (must be last)
-    @app.route('/')
+    @app.route('/', methods=['GET'])
     def index():
         app.logger.info("Serving index.html")
+        index_path = os.path.join(frontend_dir, 'index.html')
+        print(f"Looking for index.html at: {index_path}")
+        print(f"Index exists: {os.path.exists(index_path)}")
         return app.send_static_file('index.html')
 
-    @app.route('/<path:path>')
+    @app.route('/<path:path>', methods=['GET'])
     def serve_static(path):
         app.logger.info(f"Request for static file: {path}")
         # First, try to serve the file as-is
@@ -271,10 +281,6 @@ def create_app() -> Flask:
         # If it's not a file, serve index.html
         app.logger.info(f"Falling back to index.html for path: {path}")
         return app.send_static_file('index.html')
-
-    @app.before_request
-    def log_request():
-        app.logger.info(f"--- Request: {request.method} {request.path} ---")
 
     return app
 
