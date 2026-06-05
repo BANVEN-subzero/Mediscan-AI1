@@ -170,19 +170,6 @@ def create_app() -> Flask:
     def health():
         return jsonify({"ok": True})
 
-    # Serve frontend
-    @app.route('/')
-    def index():
-        return app.send_static_file('index.html')
-
-    @app.route('/<path:path>')
-    def serve_static(path):
-        # Try to serve the file, if it doesn't exist, serve index.html (for SPA routing)
-        try:
-            return app.send_static_file(path)
-        except:
-            return app.send_static_file('index.html')
-
     @app.post("/api/auth/register")
     def register():
         data = request.get_json(silent=True) or {}
@@ -266,6 +253,20 @@ def create_app() -> Flask:
     def followup_route():
         data = request.get_json(silent=True) or {}
         return jsonify(followup_logic(data))
+
+    # Serve frontend (must be last)
+    @app.route('/')
+    def index():
+        return app.send_static_file('index.html')
+
+    @app.route('/<path:path>')
+    def serve_static(path):
+        # Try to serve the file, if it doesn't exist, serve index.html (for SPA routing)
+        try:
+            return app.send_static_file(path)
+        except Exception as e:
+            app.logger.warning(f"Could not serve static file {path}, falling back to index.html: {e}")
+            return app.send_static_file('index.html')
 
     @app.before_request
     def log_request():
