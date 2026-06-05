@@ -257,16 +257,20 @@ def create_app() -> Flask:
     # Serve frontend (must be last)
     @app.route('/')
     def index():
+        app.logger.info("Serving index.html")
         return app.send_static_file('index.html')
 
     @app.route('/<path:path>')
     def serve_static(path):
-        # Try to serve the file, if it doesn't exist, serve index.html (for SPA routing)
-        try:
+        app.logger.info(f"Request for static file: {path}")
+        # First, try to serve the file as-is
+        file_path = os.path.join(frontend_dir, path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            app.logger.info(f"Serving file: {file_path}")
             return app.send_static_file(path)
-        except Exception as e:
-            app.logger.warning(f"Could not serve static file {path}, falling back to index.html: {e}")
-            return app.send_static_file('index.html')
+        # If it's not a file, serve index.html
+        app.logger.info(f"Falling back to index.html for path: {path}")
+        return app.send_static_file('index.html')
 
     @app.before_request
     def log_request():
