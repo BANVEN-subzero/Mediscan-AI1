@@ -2,102 +2,327 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="theme-color" content="#022c22">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>MediScan AI</title>
+    <title>MediScan AI — Premium Clinical-Grade Symptom Triage</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23022c22' width='100' height='100'/><path fill='%2310b981' d='M50 20c-5.5 0-10 4.5-10 10v10h-5c-2.8 0-5 2.2-5 5v25c0 2.8 2.2 5 5 5h30c2.8 0 5-2.2 5-5V45c0-2.8-2.2-5-5-5h-5V30c0-5.5-4.5-10-10-10zm0 5c2.8 0 5 2.2 5 5v10H45V30c0-2.8 2.2-5 5-5z'/></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .font-serif {
+            font-family: 'DM Serif Display', serif;
+        }
+        .emerald-gradient {
             background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%);
-            min-height: 100vh;
-            color: white;
-            padding: 20px;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
+        .glow-spot {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0) 70%);
+            pointer-events: none;
+            z-index: 1;
         }
-        .logo {
-            text-align: center;
-            margin-bottom: 40px;
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        .logo h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+        .glass-card-hover:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(16, 185, 129, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
         }
-        .logo .accent {
-            color: #10b981;
+        .btn-pulse {
+            position: relative;
+            overflow: hidden;
         }
-        .status {
-            text-align: center;
-            padding: 20px;
+        .btn-pulse::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120%;
+            height: 120%;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            margin-bottom: 20px;
+            transform: translate(-50%, -50%) scale(0);
+            border-radius: 50%;
+            transition: transform 0.6s ease-out;
         }
-        .status.ok {
-            border: 2px solid #10b981;
+        .btn-pulse:hover::after {
+            transform: translate(-50%, -50%) scale(1.6);
         }
-        .status.error {
-            border: 2px solid #ef4444;
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(1deg); }
         }
-        .nav-links {
+        .floating-element {
+            animation: float 6s ease-in-out infinite;
+        }
+        .confidence-bar {
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%);
             display: flex;
-            gap: 20px;
+            align-items: center;
             justify-content: center;
-            flex-wrap: wrap;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
         }
-        .nav-link {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #10b981;
-            color: #022c22;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(16, 185, 129, 0.2);
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="logo">
-            <h1>Medi<span class="accent">Scan</span> AI</h1>
-            <p>Clinical AI Triage Assistant</p>
-        </div>
-        
-        <div id="status" class="status">
-            <p>Checking connection...</p>
-        </div>
-        
-        <div class="nav-links">
-            <a href="index.html" class="nav-link">Home</a>
-            <a href="login.html" class="nav-link">Login</a>
-            <a href="register.html" class="nav-link">Register</a>
+<body class="min-h-screen text-slate-100 emerald-gradient relative overflow-x-hidden selection:bg-emerald-500 selection:text-emerald-950">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="text-center">
+            <div class="loader mx-auto mb-4"></div>
+            <p class="text-emerald-300 font-semibold">Loading MediScan AI...</p>
         </div>
     </div>
 
-    <script>
-        // Simple test to check if everything is working
-        document.addEventListener('DOMContentLoaded', function() {
-            const statusDiv = document.getElementById('status');
-            statusDiv.className = 'status ok';
-            statusDiv.innerHTML = '<p>✅ App is working correctly!</p><p><small>If you see this, the page loaded successfully.</small></p>';
+    <!-- Glowing Accents -->
+    <div class="glow-spot -top-40 -left-40"></div>
+    <div class="glow-spot top-1/2 -right-40"></div>
+
+    <!-- Navigation -->
+    <header class="sticky top-0 z-50 w-full border-b border-white/10 bg-emerald-950/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <a href="index.html" class="flex items-center gap-3 group">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500 text-emerald-950 shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-heartbeat text-xl"></i>
+                    </div>
+                    <span class="font-serif text-2xl tracking-wide text-white group-hover:text-emerald-300 transition duration-300">
+                        Medi<span class="text-emerald-400">Scan</span> AI
+                    </span>
+                </a>
+
+                <!-- Nav actions -->
+                <div class="flex items-center gap-4">
+                    <a href="login.html" class="text-sm font-semibold text-slate-300 hover:text-white transition px-4 py-2 rounded-lg hover:bg-white/5">
+                        Sign In
+                    </a>
+                    <a href="register.html" class="btn-pulse bg-emerald-500 text-emerald-950 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-400 hover:shadow-lg hover:shadow-emerald-500/30 transition duration-300 flex items-center gap-2">
+                        <span>Get Started</span>
+                        <i class="fas fa-arrow-right text-xs"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
-            // Try to fetch the health endpoint
-            fetch('/health')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Health check passed:', data);
-                })
-                .catch(error => {
-                    console.error('Health check failed:', error);
-                });
+            <!-- Left Info Column -->
+            <div class="lg:col-span-7 space-y-8 text-center lg:text-left">
+                <!-- Badge -->
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold uppercase tracking-wider mx-auto lg:mx-0">
+                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Clinical AI Triage Assistant
+                </div>
+
+                <!-- Main Heading -->
+                <h1 class="font-serif text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-white">
+                    Understand your symptoms <br class="hidden sm:inline">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 italic">before</span> you panic.
+                </h1>
+
+                <!-- Subtitle -->
+                <p class="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto lg:mx-0">
+                    Describe what you are feeling in plain, everyday language. Our advanced machine learning classifiers analyze your clinical markers instantly, providing safe, accurate triage recommendations.
+                </p>
+
+                <!-- Dynamic CTA Area -->
+                <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
+                    <a href="register.html" class="btn-pulse bg-white text-emerald-950 px-8 py-4 rounded-xl font-bold text-base hover:bg-emerald-50 hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-white/5">
+                        <i class="fas fa-user-plus text-sm text-emerald-700"></i>
+                        <span>Start Free Assessment</span>
+                    </a>
+                    <a href="login.html" class="glass-card text-white border border-white/20 px-8 py-4 rounded-xl font-semibold text-base hover:bg-white/5 transition-all duration-300 flex items-center justify-center gap-2">
+                        <i class="fas fa-sign-in-alt text-sm text-emerald-400"></i>
+                        <span>Sign In to Dashboard</span>
+                    </a>
+                </div>
+
+                <!-- Trusted indicators -->
+                <div class="pt-6 border-t border-white/10 flex flex-wrap justify-center lg:justify-start gap-x-8 gap-y-4 text-xs text-slate-400">
+                    <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-emerald-400"></i> Encrypted Health Data</div>
+                    <div class="flex items-center gap-2"><i class="fas fa-bolt text-emerald-400"></i> Sub-Second Analysis</div>
+                    <div class="flex items-center gap-2"><i class="fas fa-hospital text-emerald-400"></i> 40+ Condition Profiles</div>
+                </div>
+            </div>
+
+            <!-- Right Visual Mockup Column -->
+            <div class="lg:col-span-5 relative">
+                <!-- Floating Dashboard Mockup -->
+                <div class="floating-element glass-card rounded-2xl p-6 shadow-2xl relative z-10 max-w-md mx-auto">
+                    <!-- Nav bar mimic -->
+                    <div class="flex justify-between items-center pb-4 border-b border-white/10 mb-4 text-xs text-slate-400">
+                        <span class="flex items-center gap-1.5"><i class="fas fa-circle text-emerald-400 text-[8px]"></i> Diagnostic Scan</span>
+                        <span>Patient Ref: #4092</span>
+                    </div>
+
+                    <!-- Input snippet mimic -->
+                    <div class="bg-white/5 rounded-xl p-3 mb-4 border border-white/5">
+                        <span class="text-[10px] uppercase font-bold text-emerald-400 block mb-1">Reported Symptoms</span>
+                        <p class="text-xs italic text-slate-200">"I have a throbbing headache, high fever, and extreme fatigue that started yesterday morning..."</p>
+                    </div>
+
+                    <!-- Diagnosis Mimic -->
+                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-300">Triage: See Doctor</span>
+                            <span class="text-xs bg-amber-400/20 text-amber-300 px-2.5 py-0.5 rounded-full font-bold">Moderate Care</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Symptoms warrant standard medical evaluation. Rest at home and schedule an outpatient consult within 24-48 hours.</p>
+                    </div>
+
+                    <!-- Confidence metrics mimic -->
+                    <div class="space-y-3">
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block">Classifier Confidence</span>
+                        
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300 font-medium">Migraine / Tension Headache</span>
+                                <span class="text-emerald-400 font-bold">87%</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full" style="width: 87%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300 font-medium">Common Influenza</span>
+                                <span class="text-emerald-400 font-bold">76%</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full" style="width: 76%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Decorative blur behind the mockup -->
+                <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-[100px] -z-10 scale-90"></div>
+            </div>
+
+        </div>
+
+        <!-- Features Grid Section -->
+        <section class="mt-32 pt-16 border-t border-white/10">
+            <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                <h2 class="font-serif text-3xl sm:text-4xl text-white">Clinical Intelligence. Total Privacy.</h2>
+                <p class="text-slate-400 text-sm sm:text-base">
+                    Built using standard clinical classification methods, MediScan AI maps symptoms in real-time, helping you make informed triage decisions.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="glass-card glass-card-hover rounded-2xl p-6 transition-all duration-300 text-center md:text-left space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg mx-auto md:mx-0">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3 class="text-white font-bold text-lg">Machine Learning Analysis</h3>
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Features fully calibrated ML models that analyze your symptoms and cross-reference them against 40+ dynamic medical classifications.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="glass-card glass-card-hover rounded-2xl p-6 transition-all duration-300 text-center md:text-left space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg mx-auto md:mx-0">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h3 class="text-white font-bold text-lg">Secure & Confidential</h3>
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Your health inputs are stored locally on your device or in a secured sandbox environment. We respect your complete health data privacy.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="glass-card glass-card-hover rounded-2xl p-6 transition-all duration-300 text-center md:text-left space-y-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg mx-auto md:mx-0">
+                        <i class="fas fa-hospital-user"></i>
+                    </div>
+                    <h3 class="text-white font-bold text-lg">Actionable Recommendations</h3>
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Get clear warning flags, customized triage levels (Home Care, See Doctor, Emergency), and recommended recovery actions in under 3 seconds.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 bg-emerald-950/40 relative z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-3">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-emerald-950">
+                    <i class="fas fa-heartbeat text-sm"></i>
+                </div>
+                <span class="font-serif text-lg tracking-wide text-white">
+                    Medi<span class="text-emerald-400">Scan</span> AI
+                </span>
+            </div>
+
+            <p class="text-xs text-slate-400 text-center md:text-right">
+                &copy; 2026 MediScan AI. All rights reserved. 
+                <span class="block mt-1 text-slate-500">Not a substitute for professional medical advice, diagnosis, or emergency services.</span>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Hide loading screen after everything is loaded
+        window.addEventListener('load', function() {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                setTimeout(() => {
+                    loadingScreen.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                }, 300);
+            }
+        });
+        
+        // Basic error handling
+        window.addEventListener('error', function(e) {
+            console.error('Error:', e.error);
         });
     </script>
 </body>
